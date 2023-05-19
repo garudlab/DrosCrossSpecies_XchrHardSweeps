@@ -1,0 +1,8 @@
+#-------------------------------------------------------------------------------------------------------------------------
+# Mariana Harris
+# mharris94@g.ucla.edu
+# Spring 2023
+# Documentation for filtering and analysis of D.simulans
+#-------------------------------------------------------------------------------------------------------------------------
+
+Signor et al. 2018 D. simulans data. VCF downloaded from https://zenodo.org/record/154261#.YzMzty2z3jC
