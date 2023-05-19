@@ -1,0 +1,9 @@
+#-------------------------------------------------------------------------------------------------------------------------
+# Mariana Harris
+# mharris94@g.ucla.edu
+# Spring 2023
+# Documentation for data cleaning and analysis of D. melanogaster data
+# Datasets DGRP (RAL) and DPGP3 (ZI) are downloaded from http://www.johnpool.net/genomes.html and processed as in Harris & Garud 2023, MBE
+#-------------------------------------------------------------------------------------------------------------------------
+
+# D. melanogaster reference genome annotations (v5.57; Flybase) (Lack et al. 2015; Mackay et  al. 2012)

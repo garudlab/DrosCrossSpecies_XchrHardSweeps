@@ -6,3 +6,202 @@
 #-------------------------------------------------------------------------------------------------------------------------
 
 Signor et al. 2018 D. simulans data. VCF downloaded from https://zenodo.org/record/154261#.YzMzty2z3jC
+
+#-------------------------------------------------------------------------------------------------------------------------
+
+#subset to get only Signor strains
+
+module load bcftools
+module load vcftools
+
+bcftools view -S SignorStrains.txt simulans_multisamp_all_chr.vcf > simulans_multisamp_all_chr_170strains.vcf
+
+#select chromosomes
+vcftools --vcf simulans_multisamp_all_chr_170strains.vcf --chr 2L --chr 2R --chr 3L --chr 3R --chr X --recode --recode-INFO-all --out simulans_multisamp_170strains_subset_CHR.recode_ZIP.vcf #170 strains
+
+
+#compress vcffile
+bgzip simulans_multisamp_170strains_subset_CHR.recode_ZIP.vcf.recode.vcf #170 strains
+bgzip simulans_multisamp_all_chr_170strains.vcf #no subset
+
+
+#------------------------------------------------------------------------------------------------------------------------------------
+                        Reference Genome
+#------------------------------------------------------------------------------------------------------------------------------------
+# w501 assembly provided by Rebekah Rogers
+
+
+sed -i 's/\[organism = Drosophila simulans\] \[strain = w501\]//g' dsimV2-Mar2013-Genbank.fa
+sed -i 's/\[chromosome = .*\]//g' dsimV2-Mar2013-Genbank.fa
+
+sed -i 's/_length.*//g' dsimV2-Mar2012_named.fa | grep ">"
+
+qsub picard_indexReference.sh
+
+#------------------------------------------------------------------------------------------------------------------------------------
+                        Variant filtration GATK recommendeed hard fileters
+#------------------------------------------------------------------------------------------------------------------------------------
+#################################################
+############### GATK hard filters ###############
+#################################################
+########               FS > 60           ########
+########             QD < 2.0            ########
+########             MQ < 40             ########
+########        MQRankSum < -12.5        ########
+########           QUAL < 30.0           ########
+########           SOR  > 3.0            ########
+########   ReadPosRankSum < -8.0         ########
+#################################################
+
+#index
+bcftools index simulans_multisamp_170strains_subset_CHR.recode_ZIP.vcf.recode.vcf.gz
+tabix -fp vcf simulans_multisamp_170strains_subset_CHR.recode_ZIP.vcf.recode.vcf.gz
+
+bcftools index simulans_multisamp_all_chr_170strains.vcf.gz
+tabix -fp vcf simulans_multisamp_all_chr_170strains.vcf.gz
+
+
+##contig=<ID=X,length=20841172>
+##contig=<ID=4,length=1026345>
+##contig=<ID=3L,length=24255363>
+##contig=<ID=3R,length=27160941>
+##contig=<ID=2L,length=23580488>
+##contig=<ID=2R,length=21589432>
+
+
+qsub gatk_variantFiltration_Dsim.sh
+
+#SNPs and biallelic sites only and sites that PASS GATK filters
+
+qsub qsub_PASS_biSNPs.sh
+
+#------------------------------------------------------------------------------------------------------------------------------------
+#   mask repeat regions
+#------------------------------------------------------------------------------------------------------------------------------------
+
+# Use repeat masker 
+
+export BLASTDB_LMDB_MAP_SIZE=100000000 #do this only once
+
+$SCRATCH/bin/RepeatMasker/RepeatMasker -e rmblast -gff --species "Drosophila simulans" -dir RepeatMasker DsimGenomeShare/dsimV2-Mar2013-Genbank.fa 
+or #dsimV2-Mar2013-Genbank.fa
+
+#get corresponding bed file of repeats 
+# in /Drosophila_resources/Simulans_updated/Reference/RepeatMasker
+
+cat dsimV2-Mar2013-Genbank.fa.out | awk 'NR>3' | awk ' BEGIN { OFS = "\t" } ;  {print  $5, $6, $7}'  > D.simulans_rm.out.bed 
+
+#now use bedtool to remove repeat regions from vcf
+#in /Drosophila_resources/Simulans_updated/
+
+qsub qsub_MaskRepeats.sh
+
+## Computed the proportion of bp marked as repeats in 100kb windows (per chromosome per species)
+## Obtained bed file with coordinates of windows with 20% or more marked as repeats by repeat masker
+
+
+#### get vcf with high repeat density regions 0.2 max density 50kb windows
+
+qsub qsub_maskHighRepDensity.sh
+
+qsub vcf_to_H12format.sh
+
+#====================================================================================================================================
+#                                           Anotate
+#====================================================================================================================================
+#------------------------------------------------------------------------------------------------------------------------------------
+#   Introns,exons and intergenic regions from reference
+#
+# annotations from Rebekah Rogers 
+#dsim_update.final.named.gff
+
+# get chromosomes only
+
+grep '2L\|2R\|3L\|3R\|X' dsim_update.final.named.gff > dsim_update.final.named.CHRs.gff
+
+#get functional categories
+
+for category in gene exon intron; do
+     grep $category dsim_update.final.named.CHRs.gff > dsim_update.final.named.CHRs_${category}.gff
+     awk ' BEGIN { OFS = "\t" } ;  {print  $1, $4, $5,".", $6, $7, $8}' dsim_update.final.named.CHRs_${category}.gff > D.simulans_${category}.bed
+done
+
+module load bedtools
+#separate by chr
+for category in gene exon intron; do
+     for x in X 2R 2L 3R 3L; do 
+          grep $x D.simulans_${category}.bed > D.simulans_${category}_${x}.bed
+          #order
+          bedtools sort -i D.simulans_${category}_${x}.bed > D.simulans_${category}_${x}_sort.bed
+     done
+done
+
+#### now we want to remove overlapping exons. 
+#to do so first make sure that the coordinates are sorted.
+for x in X 2R 2L 3R 3L; do
+
+     #exons
+     awk -v OFS="\t" '$1=$1' D.simulans_exon_${x}_sort.bed | awk   ' BEGIN { OFS = "\t" } ;  {print $1,$2,$3, $4, $5, $6}' |   bedtools sort | bedtools merge -i -  > D.simulans_exons_${x}_merged.bed 
+
+     #introns
+     awk -v OFS="\t" '$1=$1' D.simulans_intron_${x}_sort.bed | awk   ' BEGIN { OFS = "\t" } ;  {print $1,$2,$3, $4, $5, $6}' |   bedtools sort | bedtools merge -i -  > D.simulans_introns_${x}_merged.bed 
+
+done
+
+#And finally to define intergenic regions, we use complementBed to find regions not covered by genes.
+
+for x in X 2R 2L 3R 3L; do
+    awk -v OFS="\t" '$1=$1' D.simulans_gene_${x}_sort.bed |  awk   ' BEGIN { OFS = "\t" } ;  {print $1,$2,$3, $4, $5, $6}' | bedtools sort  | bedtools complement -L -i stdin -g D.simulans.genome.bed > D.simulans_intergenic_${x}.bed 
+done
+
+cat  D.simulans_intergenic_* >  D.simulans_intergenic.bed
+cat D.simulans_introns_*_merged.bed > D.simulans_introns.bed
+cat D.simulans_exons_*_merged.bed > D.simulans_exons.bed
+
+#remove exon and intron overlap from intergenic
+
+bedtools subtract -a D.simulans_introns.bed  -b  D.simulans_exons.bed -A > D.simulans_introns.bed_tmp 
+mv D.simulans_introns.bed_tmp  D.simulans_introns.bed
+
+bedtools subtract -a D.simulans_intergenic.bed  -b  D.simulans_exons.bed  -A > D.simulans_intergenic.bed_tmp 
+bedtools subtract -a D.simulans_intergenic.bed_tmp  -b  D.simulans_introns.bed  -A > D.simulans_intergenic_UNIQUE.bed
+mv  D.simulans_intergenic_UNIQUE.bed D.simulans_intergenic.bed
+rm  D.simulans_intergenic.bed_tmp
+
+
+
+#get short introns
+awk -F"\t" '$3 -$2 < 120' D.simulans_introns.bed > D.simulans_shortintrons_120.bed
+awk -F"\t" '$3 -$2 < 65' D.simulans_introns.bed > D.simulans_shortintrons_65.bed
+
+
+for file in *_65.bed ; do
+     # get introns from base pair 8 to 30
+     cat ${file} | awk -F"\t" '$3 -$2 >= 30' |  awk   ' BEGIN { OFS = "\t" } ; {print $1,$2+=8,$3=$2+30,$4,$5,$6}' > ${file}_putativelyNeutral.bed
+done
+
+cat D.simulans_intergenic.bed | awk '{ $4 = $3 - $2 } 1' | awk '$'4' >= 10000 ' | awk   ' BEGIN { OFS = "\t" } ; {print $1,$2=$2+5000,$3=$3-5000}' > D.simulans_subintergenic.bed
+
+
+#exclude annotated regions<50bp
+for class in exons introns intergenic subintergenic; do
+     cat D.simulans_${class}.bed | awk '$'3' -$'2'> 50 ' > D.simulans_${class}_50bpPlus.bed
+done
+
+
+#exclude annotated regions<5kb
+for class in exons introns intergenic subintergenic; do
+     cat D.simulans_${class}.bed | awk '$'3' -$'2'> 5000 ' > D.simulans_${class}_50kbPlus.bed
+     #remove 1kb near to genes
+     cat D.simulans_${class}_50kbPlus.bed | awk   ' BEGIN { OFS = "\t" } ; {print $1,$2+=1000,$3=$3-1000,$4,$5,$6}' >  D.simulans_${class}_50kbPlus_1kbFarFromGenes.bed
+done
+
+
+#====================================================================================================================================
+#                                           Popgen Stats
+#====================================================================================================================================
+
+
+qsub run_getPi.sh
+qsub qsub_calcPi_functionalCat.sh
+
