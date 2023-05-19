@@ -1,0 +1,39 @@
+#!/bin/bash
+#$ -cwd
+# error = Merged with joblog
+#$ -o joblog.$JOB_ID
+#$ -j y
+## Edit the line below as needed:
+#$ -l h_rt=24:00:00,h_data=11G
+## Modify the parallel environment
+## and the number of cores as needed:
+#$ -pe shared 1
+# Notify when
+#$ -m ea
+
+echo "Job $JOB_ID started on:   " `hostname -s`
+echo "Job $JOB_ID started on:   " `date `
+echo " "
+
+# load the job environment:
+. /u/local/Modules/default/init/modules.sh
+module load anaconda3
+
+for class in exons introns intergenic subintergenic putativelyNeutral; do
+echo $class
+for chr in chrX chr2R chr2L chr3R chr3L; do
+  cd $chr
+
+  python ../Diversity_stats_functionalCategories_2.py 100 -i ${class}_${chr}_UNIQUE -o ../outPi/RAL_${class}_DiversityStats_${chr}_UNIQUE.txt -s pi -c $chr
+  
+  sed  -i 's/chr//g' ../outPi/RAL_${class}_DiversityStats_${chr}_UNIQUE.txt
+  
+  cd ..
+done
+done
+
+# echo job info on joblog:
+echo "Job $JOB_ID ended on:   " `hostname -s`
+echo "Job $JOB_ID ended on:   " `date `
+echo " "
+
