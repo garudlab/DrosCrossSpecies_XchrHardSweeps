@@ -1,0 +1,333 @@
+#-------------------------------------------------------------------------------------------------------------------------
+# Mariana Harris
+# mharris94@g.ucla.edu
+# Spring 2023
+# Documentation for filtering and analysis of D. mauritiana, D.sechellia, D.teissieri, D.santomea
+#-------------------------------------------------------------------------------------------------------------------------
+
+
+#=========================================================================================================================
+#											Filtering 
+#=========================================================================================================================
+
+#-------------------------------------------------------------------------------------------------------------------------
+#GATK hard Filters
+#-------------------------------------------------------------------------------------------------------------------------
+
+#################################################
+############### GATK hard filters ###############
+#################################################
+########               FS > 60           ########
+########             QD < 2.0            ########
+########             MQ < 40             ########
+########        MQRankSum < -12.5        ########
+########           QUAL < 30.0           ########
+########           SOR  > 3.0            ########
+########   ReadPosRankSum < -8.0         ########
+#################################################
+
+#index files 
+module load htslib/
+module load bcftools
+
+for species in mauritiana sechellia santomea teissieri yakuba; do
+	bcftools index D.${species}.round2filter.vcf.gz
+	tabix -fp vcf D.${species}.round2filter.vcf.gz
+done
+
+#SNPs and biallelic sites only and sites that PASS GATK filters
+
+qsub qsub_PASS_biSNPs.sh
+
+#-------------------------------------------------------------------------------------------------------------------------
+#	mapability filters
+#-------------------------------------------------------------------------------------------------------------------------
+
+#excluded regions with mappability score less than 1
+
+qsub qsub_MappabilityFilters.sh
+
+#-------------------------------------------------------------------------------------------------------------------------
+#	mask repeat regions
+#-------------------------------------------------------------------------------------------------------------------------
+
+# Use repeat masker to obtained bed file of repeats
+
+module load anaconda3
+##repeat masker get gVcfFileName from RepeatMasker https://www.repeatmasker.org/RepeatMasker/
+export BLASTDB_LMDB_MAP_SIZE=100000000 #do this only once
+
+#D.mauritiana
+$SCRATCH/RepeatMasker/RepeatMasker -e rmblast -gff --species "Drosophila mauritiana" -dir RepeatMasker/ D.mauritiana_GCF_004382145.1_ASM438214v1_genomic.fna
+
+#D.sechellia
+$SCRATCH/RepeatMasker/RepeatMasker -e rmblast -gff --species "Drosophila sechellia" -dir RepeatMasker/ D.sechellia_GCF_004382195.2_ASM438219v2_genomic.fna
+
+
+#D.santomea
+$SCRATCH/RepeatMasker/RepeatMasker -e rmblast -gff --species "Drosophila santomea" -dir RepeatMasker/ D.santomea.GCF_016746245.2_Prin_Dsan_1.1_genomic.fna
+
+#D. teiisieri
+$SCRATCH/RepeatMasker/RepeatMasker -e rmblast -gff --species "Drosophila teissieri" -dir RepeatMasker/ D.teissieri.GCF_016746235.2_Prin_Dtei_1.1_genomic.fna
+
+
+rename fasta headers of reference file
+
+# for D.mauritiana the headers are of the form
+# ">NC_046667.1 Drosophila mauritiana strain mau12 chromosome 2L, ASM438214v1, whole genome shotgun sequence"
+#so I rename them 
+
+
+#using repeat ouput masker output from online
+#D. mauritiana
+sed -i 's/NC_046667.1/2L/' D.mauritiana_GCF_004382145.1_ASM438214v1_genomic.fna.out
+sed -i 's/NC_046668.1/2R/' D.mauritiana_GCF_004382145.1_ASM438214v1_genomic.fna.out
+sed -i 's/NC_046669.1/3L/' D.mauritiana_GCF_004382145.1_ASM438214v1_genomic.fna.out
+sed -i 's/NC_046670.1/3R/' D.mauritiana_GCF_004382145.1_ASM438214v1_genomic.fna.out
+sed -i 's/NC_046672.1/X/' D.mauritiana_GCF_004382145.1_ASM438214v1_genomic.fna.out
+
+
+#D.sechellia
+sed -i 's/NC_045949.1/2L/' D.sechellia_GCF_004382195.2_ASM438219v2_genomic.fna.out
+sed -i 's/NC_045950.1/2R/' D.sechellia_GCF_004382195.2_ASM438219v2_genomic.fna.out
+sed -i 's/NC_045951.1/3L/' D.sechellia_GCF_004382195.2_ASM438219v2_genomic.fna.out
+sed -i 's/NC_045952.1/3R/' D.sechellia_GCF_004382195.2_ASM438219v2_genomic.fna.out
+sed -i 's/NC_045954.1/X/' D.sechellia_GCF_004382195.2_ASM438219v2_genomic.fna.out
+
+
+#D.santomea
+sed -i 's/NC_053016.2/2L/' D.santomea.GCF_016746245.2_Prin_Dsan_1.1_genomic.fna.out
+sed -i 's/NC_053017.2/2R/' D.santomea.GCF_016746245.2_Prin_Dsan_1.1_genomic.fna.out
+sed -i 's/NC_053018.2/3L/' D.santomea.GCF_016746245.2_Prin_Dsan_1.1_genomic.fna.out
+sed -i 's/NC_053019.2/3R/' D.santomea.GCF_016746245.2_Prin_Dsan_1.1_genomic.fna.out
+sed -i 's/NC_053021.2/X/' D.santomea.GCF_016746245.2_Prin_Dsan_1.1_genomic.fna.out
+
+#D. teiisieri
+sed -i 's/NC_053029.1/2L/' D.teissieri.GCF_016746235.2_Prin_Dtei_1.1_genomic.fna.out
+sed -i 's/NC_053030.1/2R/' D.teissieri.GCF_016746235.2_Prin_Dtei_1.1_genomic.fna.out
+sed -i 's/NC_053031.1/3L/' D.teissieri.GCF_016746235.2_Prin_Dtei_1.1_genomic.fna.out
+sed -i 's/NC_053032.1/3R/' D.teissieri.GCF_016746235.2_Prin_Dtei_1.1_genomic.fna.out
+sed -i 's/NC_053034.1/X/' D.teissieri.GCF_016746235.2_Prin_Dtei_1.1_genomic.fna.out
+
+
+#get corresponding bed file of repeats 
+
+for species in mauritiana sechellia santomea teissieri mel pseudoobscura; do
+	cat D.${species}*_genomic.fna.out | awk 'NR>3' | awk ' BEGIN { OFS = "\t" } ;  {print  $5, $6, $7}'  > D.${species}_rm.out.bed 
+done
+
+# next use  bedtools to remove repeat regions from vcf
+
+qsub qsub_maskRepeats.sh
+
+###### code in R jupyter notebook ~/MiscCode/RepeatDensity.ipynb to remove regions with high rep density ######
+
+## Computed the proportion of bp marked as repeats in 50kb windows (per chromosome per species)
+## Obtained bed file with coordinates of windows with 20% or more marked as repeats by repeat masker
+
+qsub qsub_maskHighRepDensity.sh
+
+#sort VCF
+bcftools sort D.sechellia.round2filter.PASS.biSNPs.Mappabilily.RepeatsMasked.RemoveHighRepDens_0.2_50kb.vcf >D.sechellia.round2filter.PASS.biSNPs.Mappabilily.RepeatsMasked.RemoveHighRepDens_0.2_50kb.vcf_sorted
+
+
+#=========================================================================================================================
+#											Anotate
+#=========================================================================================================================
+
+#-------------------------------------------------------------------------------------------------------------------------
+#	Introns,exons and intergenic regions from reference
+#-------------------------------------------------------------------------------------------------------------------------
+
+#separate gff anotations into distinct files by region
+
+for species in mauritiana sechellia santomea teissieri; do
+	csplit -z D.${species}*.gff /##sequence-region/ '{*}'  --prefix Anotation_files/D.${species}_annotated
+done
+
+module load bedops
+for species in mauritiana sechellia santomea teissieri; do
+	for x in 2L 2R 3L 3R X; do
+		gff2bed < D.${species}_annotated_${x}> D.${species}_annotated_chr${x}.bed
+		awk -vchr="chr$x" '{$1=chr ; print ;}' D.${species}_annotated_chr${x}.bed  > D.${species}_annotated_${x}.bed
+	done
+	rm *annotated_chr*bed
+done
+
+# get files of specific regions
+for species in mauritiana sechellia santomea teissieri; do
+for x in X 2R 2L 3R 3L; do 
+	cat D.${species}_annotated_${x}.bed | awk '$8=="exon" {print $0}' > D.${species}_exons_${x}.bed
+	cat D.${species}_annotated_${x}.bed | awk '$8=="gene" {print $0}' > D.${species}_genes_${x}.bed
+	cat D.${species}_annotated_${x}.bed | awk '$8=="CDS" {print $0}' > D.${species}_CDS_${x}.bed
+done
+done
+
+
+#### now we want to remove overlapping exons. 
+#to do so first make sure that the coordinates are sorted.
+module load bedtools 
+
+
+for species in mauritiana sechellia santomea teissieri; do
+for x in X 2R 2L 3R 3L; do
+	awk -v OFS="\t" '$1=$1' D.${species}_exons_${x}.bed | awk   ' BEGIN { OFS = "\t" } ;  {print $1,$2,$3, $4, $5, $6}' |	bedtools sort | bedtools merge -i -  > D.${species}_exons_${x}_merged.bed 
+done
+done
+
+#To define intronic regions, we just need to subtract the exonic region from the genic region. The utility subtractBed can do this:
+
+for species in mauritiana sechellia santomea teissieri; do
+for x in X 2R 2L 3R 3L; do
+	awk -v OFS="\t" '$1=$1' D.${species}_genes_${x}.bed | awk   ' BEGIN { OFS = "\t" } ;  {print $1,$2,$3, $4, $5, $6}' |	bedtools sort | bedtools subtract -a stdin -b D.${species}_exons_${x}_merged.bed > D.${species}_introns_${x}.bed 
+done
+done
+
+
+#And finally to define intergenic regions, we use complementBed to find regions not covered by genes.
+
+#we need bed files for the whole genome
+for species in mauritiana sechellia santomea teissieri; do
+	for x in X 2R 2L 3R 3L; do
+		cat D.${species}_annotated_${x} |grep "region" | head -2 | tail -1  | awk  -vchr="chr$x" ' BEGIN { OFS = "\t" } ;  {print chr, $5, $1, $6, $7}' >> ${species}.genome.bed
+	done
+done
+
+
+#get intergenic regions
+for species in mauritiana sechellia santomea teissieri; do
+for x in X 2R 2L 3R 3L; do
+	awk -v OFS="\t" '$1=$1' D.${species}_genes_${x}.bed | awk   ' BEGIN { OFS = "\t" } ;  {print $1,$2,$3, $4, $5, $6}' |	bedtools sort  | bedtools complement -L -i stdin -g ${species}.genome.bed > D.${species}_intergenic_${x}.bed 
+done
+done 
+
+#remove exon and intron overlap from intergenic
+for species in mauritiana sechellia santomea teissieri sim mel; do
+	 bedtools subtract -a D.${species}_intergenic.bed  -b  D.${species}_exons.bed  > D.${species}_intergenic.bed_tmp 
+
+	 bedtools subtract -a D.${species}_intergenic.bed_tmp  -b  D.${species}_introns.bed  > D.${species}_intergenic_noOverlap.bed
+
+	 rm  D.${species}_intergenic.bed_tmp
+done
+
+for species in mauritiana sechellia santomea teissieri sim mel; do
+	cat D.${species}_exons_*_merged.bed > D.${species}_exons.bed
+	cat D.${species}_introns_* > D.${species}_introns.bed
+	cat D.${species}_intergenic_* > D.${species}_intergenic.bed
+
+	#get short introns
+	awk -F"\t" '$3 -$2 < 120' D.${species}_introns.bed > D.${species}_shortintrons_120.bed
+	awk -F"\t" '$3 -$2 < 65' D.${species}_introns.bed > D.${species}_shortintrons_65.bed
+done
+
+
+******* in parsch et al 2010 base pairs 8-30 of short introns  <65bp,are the most neutral
+for file in *_65.bed.filtered.bed ; do
+	# get introns from base pair 8 to 30
+	cat ${file} | awk   ' BEGIN { OFS = "\t" } ; {print $1,$2+=8,$3=$2+30,$4,$5,$6}' > ${file}_putativelyNeutral
+done
+
+for file in *_65.bed ; do
+	# get introns from base pair 8 to 30
+	cat ${file} | awk -F"\t" '$3 -$2 >= 30' |  awk   ' BEGIN { OFS = "\t" } ; {print $1,$2+=8,$3=$2+30,$4,$5,$6}' > ${file}_putativelyNeutral
+done
+
+
+#####
+Nam et al. If any position can be included as multiple functional cate- gories, we annotated the position with the following priority: exons, introns, and intergenic sequencesls
+####
+
+for species in mauritiana sechellia santomea teissieri; do
+	echo ${species}
+	bedtools subtract -a RefSeq/Anotation_files/D.${species}_introns.bed -b RefSeq/Anotation_files/D.${species}_exons.bed -A > RefSeq/Anotation_files/D.${species}_UNIQUE_introns.bed
+
+	bedtools subtract -a RefSeq/Anotation_files/D.${species}_intergenic.bed -b RefSeq/Anotation_files/D.${species}_exons.bed -A > RefSeq/Anotation_files/D.${species}_UNIQUE_intergenic_1.bed
+
+	bedtools subtract -a RefSeq/Anotation_files/D.${species}_UNIQUE_intergenic_1.bed -b RefSeq/Anotation_files/D.${species}_UNIQUE_introns.bed -A > RefSeq/Anotation_files/D.${species}_UNIQUE_intergenic.bed
+
+	bedtools subtract -a RefSeq/Anotation_files/D.${species}_shortintrons_65.bed_putativelyNeutral -b RefSeq/Anotation_files/D.${species}_exons.bed -A > RefSeq/Anotation_files/D.${species}_UNIQUE_putativelyNeutral.bed
+
+done
+ 
+rm RefSeq/Anotation_files/*_1.bed
+
+
+#INTERGENIC REGIONS FAR FROM GENES
+
+#get distance of each intergenic region and keep only regions >10kb
+#then subset to be 5kb far from nearest gene
+
+for species in mauritiana sechellia santomea teissieri; do
+	echo ${species}
+	cat D.${species}_UNIQUE_intergenic.bed | awk '{ $4 = $3 - $2 } 1' | awk '$'4' >= 10000 ' | awk   ' BEGIN { OFS = "\t" } ; {print $1,$2=$2+5000,$3=$3-5000}' > D.${species}_UNIQUE_subintergenic.bed
+done
+
+#exclude annotated regions<40bp
+for species in mauritiana sechellia santomea teissieri; do
+for class in exons introns intergenic subintergenic; do
+     cat D.${species}_UNIQUE_${class}.bed | awk '$'3' -$'2'> 50 ' > D.${species}_UNIQUE_${class}_40bpPlus.bed
+done
+done
+
+#exclude annotated regions<5kb
+for species in mauritiana sechellia santomea teissieri; do
+for class in exons introns intergenic subintergenic; do
+     cat D.${species}_UNIQUE_${class}.bed  | awk '$'3' -$'2'> 5000 ' > D.${species}_${class}_50kbPlus.bed
+     #remove 1kb near to genes
+     cat D.${species}_${class}_50kbPlus.bed | awk   ' BEGIN { OFS = "\t" } ; {print $1,$2+=1000,$3=$3-1000}' >  D.${species}_${class}_50kbPlus_1kbFarFromGenes.bed
+done
+done
+
+#-------------------------------------------------------------------------------------------------------------------------
+#										get anotated regions from vcf files
+#-------------------------------------------------------------------------------------------------------------------------
+
+####get vcfs
+qsub qsub_getCategoiresVCFs.sh
+
+#convert to H12 file format 
+
+qsub vcf_to_H12format_wild_functionalCat.sh
+
+#### sechellia remove high Pi (potentially introgressed regions)
+for class in exons introns intergenic subintergenic; do
+	bedtools subtract -a D.sechellia_UNIQUE_${class}_50bpPlus.vcf -b D.sech_highPi.bed -header > D.sechellia_UNIQUE_${class}_50bpPlus_noHighPi.vcf
+done  
+
+for class in exons introns intergenic subintergenic; do
+	bedtools subtract -a D.sechellia_UNIQUE_${class}_50bpPlus.vcf  -b D.sech_highPi.bed -A -header > D.sechellia_UNIQUE_${class}_50bpPlus_noHighPiExtreme.vcf
+done  
+
+
+qsub vcf_to_H12format_sechellia.sh
+
+#=========================================================================================================================
+#											Popgen Stats
+#=========================================================================================================================
+
+#D.sechellia 
+module load vcftools
+file=D.sechellia.round2filter.PASS.biSNPs.Mappabilily.RepeatsMasked.RemoveHighRepDens_0.2_50kb.vcf.gz
+vcftools  --gzvcf ${file} --exclude-positions Sechellia_QC/Sechellia_InbreedingCoeff_LessThan0.9.txt --recode --recode-INFO-all --out D.sechellia.round2filter.PASS.biSNPs.Mappabilily.RepeatsMasked.RemoveHighRepDens_0.2_50kb_LessThan0.9
+
+#convert vcf to H12 in_file format
+qsub vcf_to_H12format_wild.sh
+
+qsub vcf_to_H12format_sechellia.sh
+
+#compute pi in 50kb windows
+qsub run_getPi.sh
+
+
+
+# pi per category
+qsub qsub_calcPi_functionalCat.sh
+
+#merge files in outPi directory
+for species in mauritiana sechellia santomea teissieri; do
+	for class in exons introns intergenic putativelyNeutral subintergenic; do
+		cat D.${species}_myPI_*${class}_50bpPlus.txt > D.${species}_myPI_${class}_50bpPlus.txt
+		cp  D.${species}_myPI_${class}_50bpPlus.txt ~/FigureFiles
+	done
+done
+
