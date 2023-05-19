@@ -221,18 +221,6 @@ for species in mauritiana sechellia santomea teissieri sim mel; do
 done
 
 
-******* in parsch et al 2010 base pairs 8-30 of short introns  <65bp,are the most neutral
-for file in *_65.bed.filtered.bed ; do
-	# get introns from base pair 8 to 30
-	cat ${file} | awk   ' BEGIN { OFS = "\t" } ; {print $1,$2+=8,$3=$2+30,$4,$5,$6}' > ${file}_putativelyNeutral
-done
-
-for file in *_65.bed ; do
-	# get introns from base pair 8 to 30
-	cat ${file} | awk -F"\t" '$3 -$2 >= 30' |  awk   ' BEGIN { OFS = "\t" } ; {print $1,$2+=8,$3=$2+30,$4,$5,$6}' > ${file}_putativelyNeutral
-done
-
-
 #####
 Nam et al. If any position can be included as multiple functional cate- gories, we annotated the position with the following priority: exons, introns, and intergenic sequencesls
 ####
@@ -299,8 +287,6 @@ for class in exons introns intergenic subintergenic; do
 done  
 
 
-qsub vcf_to_H12format_sechellia.sh
-
 #=========================================================================================================================
 #						Popgen Stats
 #=========================================================================================================================
@@ -312,10 +298,9 @@ vcftools  --gzvcf ${file} --exclude-positions Sechellia_QC/Sechellia_InbreedingC
 
 #convert vcf to H12 in_file format
 qsub vcf_to_H12format_wild.sh
+qsub vcf_to_G12format_wild.sh
 
-qsub vcf_to_H12format_sechellia.sh
-
-#compute pi in 50kb windows
+#compute pi in 20kb windows
 qsub run_getPi.sh
 
 
