@@ -5,7 +5,6 @@
 # Documentation for finding matching orthologs across species
 #------------------------------------------------------------------------------------------------------------------------------------
 
-
 ##OrthoDB
 
 ## get genes and transcripts form annotation files
