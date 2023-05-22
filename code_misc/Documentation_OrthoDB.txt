@@ -1,0 +1,206 @@
+#------------------------------------------------------------------------------------------------------------------------------------
+# Mariana Harris
+# mharris94@g.ucla.edu
+# Soring 2023 
+# Documentation for finding matching orthologs across species
+#------------------------------------------------------------------------------------------------------------------------------------
+
+
+##OrthoDB
+
+## get genes and transcripts form annotation files
+
+# D.melanogaster
+awk '$3 == "gene" {split($9,a,";"); gsub("ID=","",a[1]); gsub("Name=","",a[2]); print $1,$4, $5,a[1],a[2]}' dmel-all-r5.57.gff > D.mel_genesInfo.gff 
+
+
+# incorporate tab instead of spaces
+sed -i 's/ /\t/g' D.mel_genesInfo.gff #add tabs
+
+## In case I need ontology terms
+# awk '$3 == "gene" {split($9,a,";"); gsub("ID=","",a[1]); gsub("Name=","",a[2]); gsub("Ontology_term=","",a[3]); print $1,$4, $5,a[1],a[2], a[3]}' dmel-all-r5.57.gff | less
+
+
+#change scientific notation to full number
+for species in melZI melRA; do
+    for pi in Low High; do
+        awk '{for (i=1; i<=NF; i++) {if ($i ~ /[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)/) {printf "%.0f\t", $i} else {printf "%s\t", $i}} printf "\n"}' D.${species}_${pi}.bed > D.${species}_${pi}.bed_1
+        mv  D.${species}_${pi}.bed_1 D.${species}_${pi}.bed
+        sed -i 's/\t$//' D.${species}_${pi}.bed #remove extra tab
+    done
+done
+
+# use bedtools to annotate low and high diversity regions
+module load bedtools 
+
+
+# use -wa -wb flags if you want entries in both a and b file
+
+# use -wb flag if you eant entries in b file (i.e anotations and annotation coordinates only)
+
+# Get bed files with annotations for high and low Pi
+
+for species in melZI melRA; do
+    bedtools intersect -a BEDfiles/D.${species}_Low.bed -b Annotations/D.mel_genesInfo.gff -wa -wb > Annotations/D.${species}_bedIntersect_LowPi.bed
+
+    bedtools intersect -a BEDfiles/D.${species}_High.bed -b Annotations/D.mel_genesInfo.gff -wa -wb > Annotations/D.${species}_bedIntersect_HighPi.bed
+done
+
+# Q ***** Remove duplicates????
+#Now get orthology terms with orthoDB
+
+python getOrthologs.py -i Annotations/D.melZI_bedIntersect_LowPi.bed -o orthoDBout/D.melZI_orthoDB_LowPi.txt
+python getOrthologs.py -i Annotations/D.melZI_bedIntersect_HighPi.bed -o orthoDBout/D.melZI_orthoDB_HighPi.txt # very slow submit as job
+
+
+
+
+#######################################################################
+####### D.mauritina D. sechellia D. santomea and D.teissieri ##########
+#######################################################################
+
+
+for species in mauritiana sechellia santomea teissieri; do
+    #Add chromosome name 
+    for chr in X 2L 2R 3L 3R; do
+        awk '{print "'${chr}'",$0}' D.${species}_annotated_${chr} | awk '$4 == "gene" {split($10,a,";"); gsub("ID=","",a[1]); gsub("Name=","",a[3]); print $1,$5, $6, a[1],a[3]}' > D.${species}_annotated_${chr}_chrLabeled
+    done
+    #concatenate chromosomes into one file
+    cat D.${species}_annotated_X_chrLabeled D.${species}_annotated_2L_chrLabeled D.${species}_annotated_2R_chrLabeled D.${species}_annotated_3L_chrLabeled D.${species}_annotated_3R_chrLabeled > D.${species}_genesInfo.gff
+
+    # incorporate tab instead of spaces
+    sed -i 's/ /\t/g' D.${species}_genesInfo.gff #add tabs
+
+done
+
+for species in mauritiana sechellia santomea teissieri; do
+    for pi in Low High; do
+        awk '{for (i=1; i<=NF; i++) {if ($i ~ /[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)/) {printf "%.0f\t", $i} else {printf "%s\t", $i}} printf "\n"}' D.${species}_${pi}.bed > D.${species}_${pi}.bed_1
+        mv  D.${species}_${pi}.bed_1 D.${species}_${pi}.bed
+        sed -i 's/\t$//' D.${species}_${pi}.bed #remove extra tab
+    done
+done
+
+# use bedtools to annotate low and high diversity regions
+module load bedtools 
+
+for species in mauritiana sechellia santomea teissieri; do
+    bedtools intersect -a BEDfiles/D.${species}_Low.bed -b Annotations/D.${species}_genesInfo.gff -wa -wb > Annotations/D.${species}_bedIntersect_LowPi.bed
+
+    bedtools intersect -a BEDfiles/D.${species}_High.bed -b Annotations/D.${species}_genesInfo.gff -wa -wb > Annotations/D.${species}_bedIntersect_HighPi.bed
+done
+
+
+
+
+#######################################################################
+########################### D. simulans ###############################
+#######################################################################
+#Chrom names in annotation
+0       2L
+1       2R
+2       3L
+3       3R
+4       4
+5       siII
+6       X
+
+
+#get genes and rename chromosomes
+
+#Reference 1 (Rebeka Rogers)
+awk '$3 == "gene" {split($9,a,";"); gsub("ID=","",a[1]); gsub("Name=","",a[1]); print $1,$4, $5,a[1],a[1]}' dsim_update.final.gff | awk '{switch ($1) {case 0: $1 = "2L"; break; case 1: $1 = "2R"; break; case 2: $1 = "3L"; break; case 3: $1 = "3R"; break; case 6: $1 = "X"; break; default: $1 = $1;} print}' > D.simulans_genesInfo.gff 
+
+#Reference 2 (FlyBase)
+awk '$3 == "gene" {split($9,a,";"); gsub("ID=","",a[1]); gsub("Name=","",a[1]); print $1,$4, $5,a[1],a[2]}' dsim-all-r2.01.gff | sed 's/Name=Dsim\\//g' > D.simulans_genesInfo_2.gff 
+
+sed -i 's/ /\t/g' D.simulans_genesInfo.gff  #add tabs
+sed -i 's/ /\t/g' D.simulans_genesInfo_2.gff  #add tabs
+sed -i 's/Scf_//g' D.simulans_genesInfo_2.gff  #add tabs
+
+#change scientific notation to full number
+
+for pi in Low High; do
+    awk '{for (i=1; i<=NF; i++) {if ($i ~ /[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)/) {printf "%.0f\t", $i} else {printf "%s\t", $i}} printf "\n"}' D.simulans_${pi}.bed > D.simulans_${pi}.bed_1
+        mv  D.simulans_${pi}.bed_1 D.simulans_${pi}.bed
+        sed -i 's/\t$//' D.simulans_${pi}.bed #remove extra tab
+done
+
+
+# use bedtools to annotate low and high diversity regions
+module load bedtools 
+
+# Get bed files with annotations for high and low Pi
+
+for pi in Low High; do
+    bedtools intersect -a BEDfiles/D.simulans_${pi}.bed -b Annotations/D.simulans_genesInfo.gff -wa -wb > Annotations/D.simulans_bedIntersect_${pi}Pi.bed
+
+    #reference 2
+    bedtools intersect -a BEDfiles/D.simulans_${pi}.bed -b Annotations/D.simulans_genesInfo_2.gff -wa -wb > Annotations/D.simulans_bedIntersect_${pi}Pi_v2.bed
+done
+
+
+######################################################################
+########################### OrthoDB ##################################
+######################################################################
+
+qsub qsub_OrthoDB_IDs
+
+qsub_OrthoDB_IDs: 
+#---------------------------------------------------------------------
+
+#!/bin/bash
+#$ -cwd
+# error = Merged with joblog
+#$ -o joblog.$JOB_ID
+#$ -j y
+## Edit the line below as needed:
+#$ -l h_rt=24:00:00,h_data=5G
+## Modify the parallel environment
+## and the number of cores as needed:
+#$ -pe shared 1
+# Notify when
+#$ -m ea
+
+echo "Job $JOB_ID started on:   " `hostname -s`
+echo "Job $JOB_ID started on:   " `date `
+echo " "
+
+# load the job environment:
+. /u/local/Modules/default/init/modules.sh
+module load anaconda3
+
+
+#Now get orthology terms with orthoDB
+for species in mauritiana sechellia santomea teissieri melZI melRA simulans; do
+    echo ${species}
+    for pi in Low High; do
+        echo ${pi}
+        python getOrthologs.py -i Annotations/D.${species}_bedIntersect_${pi}Pi.bed -o orthoDBout/D.${species}_orthoDB_${pi}Pi.txt
+    done
+done
+
+# for other Simulans reference
+for pi in Low High; do
+    echo ${pi}
+    python getOrthologs.py -i Annotations/D.simulans_bedIntersect_${pi}Pi_v2.bed -o orthoDBout/D.simulans_orthoDB_${pi}Pi_v2.txt
+done
+
+# echo job info on joblog:
+echo "Job $JOB_ID ended on:   " `hostname -s`
+echo "Job $JOB_ID ended on:   " `date `
+echo " "
+
+#---------------------------------------------------------------------
+
+
+Fix \n in line
+
+for species in mauritiana sechellia santomea teissieri melZI melRA simulans; do
+    echo ${species}
+    for pi in Low High; do
+        awk 'NR%2==0 {print $0} NR%2==1 {printf "%s", $0}' D.${species}_orthoDB_${pi}Pi.txt > D.${species}_orthoDB_${pi}Pi_formatted.txt
+    done
+done
+
+
