@@ -1,0 +1,62 @@
+initialize() {
+	if (exists("slimgui")) {
+		defineConstant("R", 5e-9); //1e-7
+		defineConstant("N", 1e6); //5e-4
+		defineConstant("Q", 100); //rescaling constant
+		defineConstant("run", 1);
+		defineConstant("ChrType",'X');
+		defineConstant("burn_in", 1);
+		defineConstant("sexRatio", 0.5);
+		defineConstant("Mu",1e-9);
+		defineConstant("Nsd",10);
+		defineConstant("alpha",0.35);
+		defineConstant("H",0.5);
+		defineConstant("file_path","tmp/out_X.txt");
+
+	}
+	
+		
+	defineConstant("chromosome_length", 20000);
+	defineConstant("sd", -0.000133);
+	defineConstant("alpha",0.35);
+ 
+	initializeMutationType("m1", 0.5, "f", 0);
+	//initializeMutationType("m2", H, "f", sd*Q); //fixed selection coeff
+	initializeMutationType("m2", H, "g", sd*Q,alpha); //gamma distributed s, with mean s and shape parameter	
+	initializeSex(ChrType);//models sex chr and autosomes
+	
+	initializeGenomicElementType("g1", c(m1,m2), c(0.2,0.8)); #80 % of new mutations are deleterious, change this for different proportions of mu_del
+	
+	initializeGenomicElement(g1, 0, chromosome_length-1);
+	initializeMutationRate(Mu*Q);
+	initializeRecombinationRate(R*Q);
+	
+	//initializeRecombinationRate(R*Q,sex="F");
+	//initializeRecombinationRate(0,sex="M");
+}
+
+function (void)EndSimulation(void){
+
+	p1.outputMSSample(100,filePath=file_path);
+	sim.simulationFinished();
+}
+
+1 {
+	
+	sim.addSubpop("p1", asInteger(N/Q),sexRatio);
+	
+	
+	catn("mutation rate= "+asString(Mu*Q));
+	
+	defineConstant("G_start", sim.generation + asInteger(burn_in*(N/Q)));
+	print(G_start);
+	
+	G_end = G_start+1;
+	print(G_end);
+
+	sim.registerLateEvent(NULL, "{EndSimulation();}", G_end, G_end);
+	
+	
+
+}
+
