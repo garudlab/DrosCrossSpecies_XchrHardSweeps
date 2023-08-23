@@ -1,0 +1,64 @@
+//***********************************************************//
+initialize() {
+
+	initializeSex(ChrType);//models autosomes
+	defineConstant("chromosome_length", 20000);
+	
+	initializeMutationRate(Mu*Q);
+	initializeMutationType("m1", 0.5, "f", 0.0);
+	initializeGenomicElementType("g1", m1, 1.0);
+	initializeGenomicElement(g1, 0, chromosome_length-1);
+	initializeRecombinationRate(R*Q);
+	//initializeRecombinationRate(R*Q,sex="F");
+	//initializeRecombinationRate(0,sex="M");
+}
+
+function (void)EndSimulation(void){
+
+        p1.outputMSSample(100,filePath=file_path);
+        sim.simulationFinished();
+}
+
+1 late() {
+
+	sim.addSubpop("p1", asInteger(N/Q),sexRatio);
+
+	defineConstant("G_start", sim.generation + asInteger(burn_in*(N/Q)));
+  	print(G_start);	
+  	defineConstant("N_b", N*qb);
+	defineConstant("N_d", N*qd);
+	
+	defineConstant("T_b", N*tb);
+	defineConstant("T_d", N*td);
+
+catn("Ne"+" "+N);
+  catn("qb"+" "+ qb);
+  catn("qd"+" "+ qd);
+  catn("tb"+" "+ tb);
+  catn("td"+" "+ td);
+
+  catn("Nb"+" "+ N_b/Q);
+  catn("Nd"+" "+ N_d/Q);
+  catn("Tb"+" "+ T_b/Q);
+  catn("Td"+" "+ T_d/Q);
+  endB=G_start+asInteger(T_b/Q);
+  catn("End bottleneck time"+" "+ endB);
+
+
+	G_end = G_start+asInteger(T_b/Q)+asInteger(T_d/Q) ;
+  print(G_end);
+
+	//start bottleneck
+	sim.registerEarlyEvent(NULL,"{p1.setSubpopulationSize(asInteger(N_b/Q));p1.setSexRatio(sexRatio);}", G_start,G_start);
+	
+	//end bottleneck
+	sim.registerEarlyEvent(NULL,"{p1.setSubpopulationSize(asInteger(N_d/Q));}", G_start+asInteger(T_b/Q),G_start+asInteger(T_b/Q));
+	
+
+	//get simulation output
+	sim.registerLateEvent(NULL, "{EndSimulation();}", G_end, G_end);
+	
+	//sim.registerLateEvent(NULL, "{outputFile();}", 100+G_end, 100+G_end);
+	
+}
+
