@@ -359,7 +359,91 @@ qsub vcf_to_H12format_wild.sh
 
 qsub vcf_to_H12format_sechellia.sh
 
-#compute pi in 50kb windows
+# Include masked regions from banded gVCF file
+for species in mauritiana sechellia santomea teissieri; do
+
+	#DP
+	bcftools query -f '%CHROM\t%POS\t[ %DP]\n' D.${species}.round2.gvcf > D.${species}.round2.DP.txt_tmp
+	awk '{min=$3; for(i=4;i<=NF;i++) if($i < min || min=="") min=$i; print $1,$2,min}' D.${species}.round2.DP.txt_tmp >D.${species}.round2.DP.txt
+	sed -i 's/ /\t/g'  D.${species}.round2.DP.txt
+	
+	#GQ
+	bcftools query -f '%CHROM\t%POS\t[ %GQ]\n' D.${species}.round2.gvcf > D.${species}.round2.GQ.txt_tmp 
+	awk '{min=$3; for(i=4;i<=NF;i++) if($i < min || min=="") min=$i; print $1,$2,min}' D.${species}.round2.GQ.txt_tmp > D.${species}.round2.GQ.txt
+	sed -i 's/ /\t/g' D.${species}.round2.GQ.txt
+done
+
+# get file per chrom per species
+for species in sechellia; do # mauritiana sechellia santomea teissieri; do
+for x in X 2R 2L 3R 3L; do
+	grep ${x} D.${species}.round2.GQ.txt > D.${species}.round2.GQ_${x}.txt
+	grep ${x} D.${species}.round2.DP.txt > D.${species}.round2.DP_${x}.txt
+done
+done
+
+# paste end position
+for species in sechellia; do #sechellia santomea teissieri
+for x in X 2R 2L 3R 3L; do
+
+ awk '{print $2}' D.${species}.round2.GQ_${x}.txt | awk 'NR>1' > post_tmp.txt
+ paste D.${species}.round2.GQ_${x}.txt post_tmp.txt > merge.txt
+ awk '{print $1, $2, $4, $3}'  merge.txt > D.${species}.round2.GQ_${x}_mod.txt 
+
+ awk '{print $2}' D.${species}.round2.DP_${x}.txt | awk 'NR>1' > post_tmp.txt
+ paste D.${species}.round2.DP_${x}.txt post_tmp.txt > merge.txt
+ awk '{print $1, $2, $4, $3}'  merge.txt > D.${species}.round2.DP_${x}_mod.txt 
+
+ mv D.${species}.round2.GQ_${x}_mod.txt D.${species}.round2.GQ_${x}.txt
+ mv D.${species}.round2.DP_${x}_mod.txt D.${species}.round2.DP_${x}.txt 
+
+done
+done
+
+#apply filters ---> bcftools filter -i 'MIN(FMT/DP)>10 & MIN(FMT/GQ)>30' 
+
+for species in sechellia; do #santomea teissieri
+echo ${species}
+for x in X 2R 2L 3R 3L; do
+	head -n -1 D.${species}.round2.DP_${x}.txt | awk '$4 < 10' > masked_D.${species}.round2.DP_${x}.bed
+	head -n -1 D.${species}.round2.GQ_${x}.txt | awk '$4 < 30' > masked_D.${species}.round2.GQ_${x}.bed
+
+	cat masked_D.${species}.round2.GQ_${x}.bed masked_D.${species}.round2.DP_${x}.bed | sort | uniq > masked_D.${species}.round2.${x}.bed
+
+
+	#sort 
+	sort -k1,1 -k2,2n masked_D.${species}.round2.${x}.bed > masked_D.${species}.round2.${x}.sorted.bed
+
+	sed -i 's/ /\t/g' masked_D.${species}.round2.${x}.sorted.bed
+	#merge intervals that will be filtered out
+	bedtools merge -i masked_D.${species}.round2.${x}.sorted.bed > masked_D.${species}.round2.${x}.merged.bed 
+
+done
+done
+
+#Get good regions
+
+for species in sechellia santomea teissieri mauritiana; do #santomea teissieri
+echo ${species}
+for x in X 2R 2L 3R 3L; do
+	head -n -1 D.${species}.round2.DP_${x}.txt | awk '$4 > 10' | sort -k1,1 -k2,2n  > filtered_D.${species}.round2.DP_${x}.bed
+	head -n -1 D.${species}.round2.GQ_${x}.txt | awk '$4 > 30' | sort -k1,1 -k2,2n > filtered_D.${species}.round2.GQ_${x}.bed
+
+	sed -i 's/ /\t/g' filtered_D.${species}.round2.DP_${x}.bed
+	sed -i 's/ /\t/g' filtered_D.${species}.round2.GQ_${x}.bed
+
+
+	#intersect intervals that will remain after filtering
+	bedtools intersect  -a filtered_D.${species}.round2.DP_${x}.bed -b filtered_D.${species}.round2.GQ_${x}.bed > filtered_D.${species}.round2.intersect${x}.bed
+
+done
+done
+
+#add Ns
+qsub run_addNs_banded.sh # this adds lines with N's to the regions that were masked from the baned gVCF files
+qsub run_getPi_removeMDwindows.sh #change the threshold of missingness
+
+
+#compute pi in 20kb windows
 qsub run_getPi.sh
 
 
