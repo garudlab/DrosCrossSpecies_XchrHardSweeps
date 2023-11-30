@@ -25,17 +25,23 @@ echo " "
 module load anaconda3
 
 
-for species in sechellia mauritiana sechellia teissieri santomea; do
+for species in sechellia; do #sechellia mauritiana teissieri santomea
 
-file=D.${species}.round2filter.PASS.biSNPs.Mappabilily.RepeatsMasked.vcf
+#file=D.${species}.round2filter.PASS.biSNPs.Mappabilily.RepeatsMasked.vcf
+#file=D.${species}.round2filter.PASS.biSNPs.Mappabilily.RepeatsMasked.vcf #for revisions
+file=D.${species}.round2filter.PASS.biSNPs.Mappabilily.RepeatsMasked.bandedFiltered.RemoveHighRepDens_0.2_50kb.vcf #for revisions second QC
+#file=D.${species}.round2filter.PASS.biSNPs.Mappabilily.RepeatsMasked.bandedFiltered.vcf #for revisions second QC
+#file=D.${species}.round2filter.PASS.biSNPs.Mappabilily.sorted.RepeatsMaskedN.vcf 
+#file=NOTmasked_D.${species}.vcf
 
 echo $file
 
 sed -ne '/#CHR/,$ p' VCFs/${file} > VCFs/${file}_noHeader
 
 for x in X 2R 2L 3R 3L; do
+        echo ${x}
 	grep ${x} VCFs/${file}_noHeader > dataByChr/${file}_noHeader_Chr${x}
-	python vcf_to_H12format_wild.py dataByChr/${file}_noHeader_Chr${x} -o H12Files/${file}.toH12_wild_Chr${x}.txt
+	python vcf_to_H12format_wild.py dataByChr/${file}_noHeader_Chr${x} -o H12Files_revisions/${file}.toH12_wildSorted_Chr${x}.txt
         rm dataByChr/*tmp
 done
 done

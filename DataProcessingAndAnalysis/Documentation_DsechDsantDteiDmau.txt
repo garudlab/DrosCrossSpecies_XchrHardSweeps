@@ -130,6 +130,50 @@ qsub qsub_maskHighRepDensity.sh
 #sort VCF
 bcftools sort D.sechellia.round2filter.PASS.biSNPs.Mappabilily.RepeatsMasked.RemoveHighRepDens_0.2_50kb.vcf >D.sechellia.round2filter.PASS.biSNPs.Mappabilily.RepeatsMasked.RemoveHighRepDens_0.2_50kb.vcf_sorted
 
+#-------------------------------------------------------------------------------------------------------------------------
+#	        mask invariant intervals
+#-------------------------------------------------------------------------------------------------------------------------
+## apply additional filtering step to banded GFCV for D. mauritiana and D.santomea
+
+#filter gvcfs
+bcftools filter -i 'MIN(FMT/DP)>10 & MIN(FMT/GQ)>30' -O v -o D.mauritiana.round2.banded.filter.gvcf D.mauritiana.round2.gvcf
+bcftools filter -i 'MIN(FMT/DP)>10 & MIN(FMT/GQ)>30' -O v -o D.santomea.round2.banded.filter.gvcf D.santomea.round2.gvcf
+bcftools filter -i 'MIN(FMT/DP)>10 & MIN(FMT/GQ)>30' -O v -o D.sechellia.round2.banded.filter.gvcf D.sechellia.round2.gvcf
+bcftools filter -i 'MIN(FMT/DP)>10 & MIN(FMT/GQ)>30' -O v -o D.teissieri.round2.banded.filter.gvcf D.teissieri.round2.gvcf
+
+bgzip D.mauritiana.round2.banded.filter.gvcf
+bgzip D.santomea.round2.banded.filter.gvcf
+bgzip D.sechellia.round2.banded.filter.gvcf
+bgzip D.teissieri.round2.banded.filter.gvcf
+
+# index files
+bcftools index D.mauritiana.round2.banded.filter.gvcf.gz
+bcftools index D.santomea.round2.banded.filter.gvcf.gz
+bcftools index D.sechellia.round2.banded.filter.gvcf.gz
+bcftools index D.teissieri.round2.banded.filter.gvcf.gz
+
+
+#apply filter to VCFs
+# go to VCF directory
+
+# filter variants from the input VCF file (D.mauritiana.round2filter.PASS.biSNPs.Mappabilily.RepeatsMasked.vcf.gz) 
+# based on regions specified in the file D.mauritiana.round2.banded.filter.gvcf.gz. The filtered variants are 
+# saved in a compressed VCF file 
+
+bcftools view -T ../bandedGVCF/D.mauritiana.round2.banded.filter.gvcf.gz D.mauritiana.round2filter.PASS.biSNPs.Mappabilily.RepeatsMasked.vcf.gz -O z -o D.mauritiana.round2filter.PASS.biSNPs.Mappabilily.RepeatsMasked.bandedFiltered.vcf.gz 
+
+bcftools view -T ../bandedGVCF/D.santomea.round2.banded.filter.gvcf.gz D.santomea.round2filter.PASS.biSNPs.Mappabilily.RepeatsMasked.vcf.gz -O z -o D.santomea.round2filter.PASS.biSNPs.Mappabilily.RepeatsMasked.bandedFiltered.vcf.gz 
+
+bcftools view -T ../bandedGVCF/D.sechellia.round2.banded.filter.gvcf.gz D.sechellia.round2filter.PASS.biSNPs.Mappabilily.RepeatsMasked.vcf.gz -O z -o D.sechellia.round2filter.PASS.biSNPs.Mappabilily.RepeatsMasked.bandedFiltered.vcf.gz 
+
+bcftools view -T ../bandedGVCF/D.teissieri.round2.banded.filter.gvcf.gz D.teissieri.round2filter.PASS.biSNPs.Mappabilily.RepeatsMasked.vcf.gz -O z -o D.teissieri.round2filter.PASS.biSNPs.Mappabilily.RepeatsMasked.bandedFiltered.vcf.gz 
+
+qsub qsub_maskHighRepDensity.sh
+
+#sort VCF
+bcftools sort D.sechellia.round2filter.PASS.biSNPs.Mappabilily.RepeatsMasked.bandedFiltered.RemoveHighRepDens_0.2_50kb.vcf >D.sechellia.round2filter.PASS.biSNPs.Mappabilily.RepeatsMasked.bandedFiltered.RemoveHighRepDens_0.2_50kb.vcf_sorted
+
+mv D.sechellia.round2filter.PASS.biSNPs.Mappabilily.RepeatsMasked.bandedFiltered.RemoveHighRepDens_0.2_50kb.vcf_sorted D.sechellia.round2filter.PASS.biSNPs.Mappabilily.RepeatsMasked.bandedFiltered.RemoveHighRepDens_0.2_50kb.vcf
 
 #=========================================================================================================================
 #			               Anotate
