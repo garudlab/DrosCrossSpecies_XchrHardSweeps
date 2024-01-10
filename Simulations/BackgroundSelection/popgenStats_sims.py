@@ -15,11 +15,11 @@ def calcStats(inFile,outFile, H, Ns):
     #segsites
     S=MS.shape[1]
     # run the pi calculations with calcPi function
-    Pi,varPi = calcPi(MS,5e4)
-    TajD=calcTajimasD(MS,5e4)
+    Pi,varPi = calcPi(MS,2e4)
+    TajD=calcTajimasD(MS,2e4)
 
     # add the calc to a line with formatting
-    line = str(S/5e4)+ "\t" +str(Pi) + "\t" + str(varPi)+ "\t" + str(TajD)+"\t" + str(H)+"\t" + str(Ns)+"\n"
+    line = str(S/2e4)+ "\t" +str(Pi) + "\t" + str(varPi)+ "\t" + str(TajD)+"\t" + str(H)+"\t" + str(Ns)+"\n"
     #print(line)
     # write the line to the outfile
     out.write(line)
